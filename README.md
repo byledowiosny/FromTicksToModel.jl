@@ -8,6 +8,6 @@ FromTicksToModel.jl requires `julia` to be installed with some additional packag
 ## Usage
 
 ### Unlicenced
-Find the full [unlicense][] in the `UNLICENSE` file.
+Find the full description in the `UNLICENSE` file.
 
 *Warning*: This is pre-alpha code. Do not use.
