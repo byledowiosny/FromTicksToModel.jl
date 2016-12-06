@@ -3,7 +3,7 @@
 FromTicksToModel.jl provides a set of tools to transform raw ticks data (from Dukascopy Bank actually) to data useful for statistical modeling.
 
 ## Requirements
-FromTicksToModel.jl requires `julia` to be installed with some additional packages, see `REQUIRE` file.
+FromTicksToModel.jl requires `julia` and `R` to be installed with some additional packages, see `REQUIRE` file.
 
 ## Usage
 

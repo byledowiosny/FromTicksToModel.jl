@@ -57,9 +57,6 @@ function main(args)
     TableDate = Date(parse(Int,year), parse(Int,month), parse(Int,day))
     TableDayOfWeek = Dates.dayofweek(TableDate)
     TableWeek = Dates.week(TableDate)
-    #MonthName = Dates.monthname(TableDate)
-    #DayName = Dates.dayname(TableDate)
-    #MonthDay = Dates.monthday(TableDate)
 
     cache = CacheDirectory()
     source = DukascopyTicks()
@@ -68,7 +65,6 @@ function main(args)
         WY=Int64[],SL=Int32[],TP=Int32[],AVMax=Int32[],
         BVMax=Int32[],AVSum=Int32[],BVSum=Int32[])
 
-    #for day in 1:Dates.daysinmonth(TableDate)
     for hour in parse(Int,from):23
         try
         reader = get(source, ticker, DateTime(parse(Int,year), 
@@ -109,7 +105,6 @@ function main(args)
 
         append!(DayTable, HourTable)
         catch
-            #writetable("$ticker-$year-$month-$day-$hour.csv", DayTable)
             hour += 1
         end
     end

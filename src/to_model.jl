@@ -1,9 +1,7 @@
-using DukascopyTicksReader: DukascopyTicks, CacheDirectory,
-    get_cache_dir, get_filename, get_url, get,
-    to_arrays, to_dataframe, to_timearray
 using DataFrames
-isdefined(:Date) || using Dates
 using ArgParse
+isdefined(:Date) || using Dates
+using StatsBase
 
 function main(args)
 
@@ -38,7 +36,7 @@ function main(args)
             nargs = '*' 
             # since the result will be a Vector{Any}, the default must
             # also be (or it can be [] or nothing)
-            default = Any["no_arg_given"]
+            default = Any["kuku!"]
             help = "second argument, eats up " *
                    "as many items as possible " *
                    "before an option"
@@ -51,56 +49,53 @@ function main(args)
     end
 
     ticker = parsed_args["opt1"]
-    day,from = parsed_args["arg2"]
     year,month = parsed_args["arg1"]
 
-    #if day > Dates.daysinmonth(parse(Int,year), parse(Int,month))
-    #    day = Dates.daysinmonth(parse(Int,year), parse(Int,month))
-    #end
-
-    TableDate = Date(parse(Int,year), parse(Int,month), parse(Int,day))
-    TableDayOfWeek = Dates.dayofweek(TableDate)
-    TableWeek = Dates.week(TableDate)
-
-    cache = CacheDirectory()
-    source = DukascopyTicks()
+    TableDate = Date(parse(Int,year), parse(Int,month))
+    Days = Dates.daysinmonth(TableDate)
 
     DayTable = DataFrame(Act=Int32[],H=Int32[],DW=Int64[],
         WY=Int64[],SL=Int32[],TP=Int32[],AVMax=Int32[],
         BVMax=Int32[],AVSum=Int32[],BVSum=Int32[])
 
-    for hour in parse(Int,from):23
-        try
-        reader = get(source, ticker, DateTime(parse(Int,year), 
-            parse(Int,month), parse(Int,day), hour))
+    for for day in 1:Days
 
-        if sizeof(reader) == 0 continue
+        cd("/home/jerzy/data/csv/$ticker-$year-$month")
+
+        try
+        table = readtable("$ticker-$year-$month-$day.csv")
+
+        if sizeof(table) == 0 continue
         end
 
-        table = to_dataframe(reader)
-        
-        AskOpen = first(table[:Ask])
-        BidOpen = first(table[:Bid])
-        AskHigh = maximum(table[:Ask])
-        BidHigh = maximum(table[:Bid])
-        AskVolumeHigh = maximum(table[:AskVolume])
-        BidVolumeHigh = maximum(table[:BidVolume])
-        AskLow = minimum(table[:Ask])
-        BidLow = minimum(table[:Bid])
-        AskVolumeTotal = sum(table[:AskVolume])
-        BidVolumeTotal = sum(table[:BidVolume])
+        describe(table[:SL])
+        describe(table[:TP])
 
-        UpRange = round(Integer, (AskHigh - AskOpen) * 100000)
-        DownRange = abs(round(Integer, (BidLow - BidOpen) * 100000))
+        SLOpen = first(table[:SL])
+        TPOpen = first(table[:TP])
+        SLHigh = maximum(table[:SL])
+        findmax(table[:SL]) # the max and its index
+        TPHigh = maximum(table[:TP])
+        findmax(table[:TP])
+        AVHigh = maximum(table[:AVMax])
+        BVHigh = maximum(table[:BVMax])
+        SLLow = minimum(table[:SL])
+        findmin(table[:SL]) # the mix and its index
+        TPLow = minimum(table[:TP])
+        AVTotal = sum(table[:AVSum])
+        BVTotal = sum(table[:BVSum])
+        MSL = median(table[:SL])
+        MTP = median(table[:TP])
 
-        if UpRange > DownRange Action = 1; SLPoints = DownRange; 
-            TPPoints = UpRange
-        elseif UpRange < DownRange Action = 2; SLPoints = UpRange; 
-            TPPoints = DownRange
+        if table[:Act] == 1 && table[:SL] <= MSL && table[:TP] >= MTP 
+            table[:Act] = 1
+        elseif table[:Act] == 1 && table[:SL] <= MSL && 
+            table[:TP] >= MTP table[:Act] = 2
+        else table[:Act] = 3
         end
 
         HourTable = DataFrame(Act = Action, H=hour, 
-            DW=TableDayOfWeek, WY=TableWeek, 
+            DW=TrueDayOfWeek, WY=TrueWeek, 
             SL = SLPoints, TP = TPPoints, 
             AVMax = round(Integer, AskVolumeHigh),
             BVMax = round(Integer, BidVolumeHigh), 
@@ -109,16 +104,15 @@ function main(args)
 
         append!(DayTable, HourTable)
         catch
-            writetable("$ticker-$year-$month-$day-$hour.csv", DayTable)
-            hour += 1
+            day += 1
         end
     end
 
-    if !isdir("/home/jerzy/data/csv/$ticker-$year-$month")
-        mkdir("/home/jerzy/data/csv/$ticker-$year-$month")
+    if !isdir("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
+        mkdir("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
     end
-    cd("/home/jerzy/data/csv/$ticker-$year-$month")
-    writetable("$ticker-$year-$month-$day.csv", DayTable)
+    cd("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
+    writetable("$ticker-$TrueYear-$TrueMonth-$TrueDay.csv", DayTable)
 end
 
 main(ARGS)
