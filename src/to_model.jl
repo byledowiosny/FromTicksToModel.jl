@@ -54,65 +54,91 @@ function main(args)
     TableDate = Date(parse(Int,year), parse(Int,month))
     Days = Dates.daysinmonth(TableDate)
 
-    DayTable = DataFrame(Act=Int32[],H=Int32[],DW=Int64[],
-        WY=Int64[],SL=Int32[],TP=Int32[],AVMax=Int32[],
-        BVMax=Int32[],AVSum=Int32[],BVSum=Int32[])
+    MonthTable = DataFrame(Act=Int32[], DW=Int32[], WY=Int32[], 
+        DRHMax=Int32[], DR5=Int32[], DR4=Int32[], DR3=Int32[], 
+        DR2=Int32[], DR1=Int32[], DRHMin=Int32[], 
+        URHMin=Int32[], UR1=Int32[], UR2=Int32[], UR3=Int32[], 
+        UR4=Int32[], UR5=Int32[], URHMax=Int32[], 
+        AVMax=Int32[], AVHMax=Int32[], BVMax=Int32[], BVHMax=Int32[], 
+        AVT=Int32[], BVT=Int32[])
 
-    for for day in 1:Days
-
-        cd("/home/jerzy/data/csv/$ticker-$year-$month")
+    for day in 1:Days
 
         try
-        table = readtable("$ticker-$year-$month-$day.csv")
+table = readtable("/home/jerzy/data/csv/$ticker-$year-$month/$ticker-$year-$month-$day.csv")
 
         if sizeof(table) == 0 continue
         end
-
-        describe(table[:SL])
-        describe(table[:TP])
-
-        SLOpen = first(table[:SL])
-        TPOpen = first(table[:TP])
-        SLHigh = maximum(table[:SL])
-        findmax(table[:SL]) # the max and its index
-        TPHigh = maximum(table[:TP])
-        findmax(table[:TP])
-        AVHigh = maximum(table[:AVMax])
-        BVHigh = maximum(table[:BVMax])
-        SLLow = minimum(table[:SL])
-        findmin(table[:SL]) # the mix and its index
-        TPLow = minimum(table[:TP])
-        AVTotal = sum(table[:AVSum])
-        BVTotal = sum(table[:BVSum])
-        MSL = median(table[:SL])
-        MTP = median(table[:TP])
-
-        if table[:Act] == 1 && table[:SL] <= MSL && table[:TP] >= MTP 
-            table[:Act] = 1
-        elseif table[:Act] == 1 && table[:SL] <= MSL && 
-            table[:TP] >= MTP table[:Act] = 2
-        else table[:Act] = 3
+        
+        DR1, DR2, DR3, DR4, DR5 = quantile(table[:DR])
+        DRMax, DRHMax = findmax(table[:DR]) # the max and its index
+        DRMin, DRHMin = findmin(table[:DR]) # the min and its index
+        UR1, UR2, UR3, UR4, UR5 = quantile(table[:UR])
+        URMax, URHMax = findmax(table[:UR]) # the max and its index
+        URMin, URHMin = findmin(table[:UR]) # the min and its index
+        
+        AVMax, AVHMax = findmax(table[:AVSum])
+        BVMax, BVHMax = findmax(table[:BVSum])
+        AVT = sum(table[:AVSum])
+        BVT = sum(table[:BVSum])
+        
+        if UR3 > DR3 Action = 1
+        elseif UR3 < DR3 Action = 2
+        else Action = 3
         end
 
-        HourTable = DataFrame(Act = Action, H=hour, 
-            DW=TrueDayOfWeek, WY=TrueWeek, 
-            SL = SLPoints, TP = TPPoints, 
-            AVMax = round(Integer, AskVolumeHigh),
-            BVMax = round(Integer, BidVolumeHigh), 
-            AVSum = round(Integer, AskVolumeTotal),
-            BVSum = round(Integer, BidVolumeTotal))
+        DW = first(table[:DW])
+        WY = first(table[:WY])
 
-        append!(DayTable, HourTable)
+        DayTable = DataFrame(Act=Action, DW=DW, WY=WY, 
+        DRHMax=DRHMax, DR5=round(Integer,DR5), DR4=round(Integer,DR4), 
+        DR3=round(Integer,DR3), DR2=round(Integer,DR2), 
+        DR1=round(Integer,DR1), DRHMin=DRHMin, 
+        URHMin=URHMin, UR1=round(Integer,UR1), UR2=round(Integer,UR2), 
+        UR3=round(Integer,UR3), UR4=round(Integer,UR4), 
+        UR5=round(Integer,UR5), URHMax=URHMax, 
+        AVMax=AVMax, AVHMax=AVHMax, BVMax=BVMax, BVHMax=BVHMax, 
+        AVT=AVT, BVT=BVT)
+
+        append!(MonthTable, DayTable)
         catch
             day += 1
         end
     end
 
-    if !isdir("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
-        mkdir("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
+    if !isdir("/home/jerzy/data/csv/$ticker-$year")
+        mkdir("/home/jerzy/data/csv/$ticker-$year")
     end
-    cd("/home/jerzy/data/csv/$ticker-$TrueYear-$TrueMonth")
-    writetable("$ticker-$TrueYear-$TrueMonth-$TrueDay.csv", DayTable)
+    cd("/home/jerzy/data/csv/$ticker-$year")
+    writetable("$ticker-$year-$month.csv", MonthTable)
 end
-
 main(ARGS)
+
+#describe(table[:SL])
+#describe(table[:TP])
+#QDR = nquantile(table[:DR], 8)
+#QUR = nquantile(table[:UR], 8)
+
+#Act = Action: 1 buy, 2 sell, 3 do nothing
+#DW = day of week
+#WY = week of year 
+#DRHMax = down range hour max
+#DR5 = down range max
+#DR4 = down range q75
+#DR3 = down range median
+#DR2 = down range q25
+#DR1 = down range min
+#DRHMin = down range hour min
+#URHMin = up range hour min
+#UR1 = up range min
+#UR2 = up range q25
+#UR3 = up range median
+#UR4 = up range q75
+#UR5 = up range max
+#URHMax = up range hour max
+#AVMax = ask volume hourly max
+#AVHMax = ask volume hour of max
+#BVMax = bid volume hourly max
+#BVHMax = bid volume hour of max
+#AVT = ask volume total of day
+#BVT = bid volume total of day

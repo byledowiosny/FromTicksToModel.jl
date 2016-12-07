@@ -1,4 +1,4 @@
-library(LaplacesDemon)
+library(LaplacesDemonCpp)
 ####################################################
 data(action)
 str(action)
