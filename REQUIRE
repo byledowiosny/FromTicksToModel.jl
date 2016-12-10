@@ -1,5 +1,10 @@
 julia 0.4
+=========
 DukascopyTicksReader
 DataFrames
 ArgParse
 StatsBase
+
+R
+=
+LaplacesDemonCpp

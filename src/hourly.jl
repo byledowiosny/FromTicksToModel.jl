@@ -4,6 +4,7 @@ using DukascopyTicksReader: DukascopyTicks, CacheDirectory,
 using DataFrames
 using ArgParse
 isdefined(:Date) || using Dates
+using StatsBase
 
 function main(args)
 
@@ -38,7 +39,7 @@ function main(args)
             nargs = '*' 
             # since the result will be a Vector{Any}, the default must
             # also be (or it can be [] or nothing)
-            default = Any["kuku!"]
+            default = Int32[5]
             help = "second argument, eats up " *
                    "as many items as possible " *
                    "before an option"
@@ -51,19 +52,27 @@ function main(args)
     end
 
     ticker = parsed_args["opt1"]
+    puck = parsed_args["arg2"]
     year,month = parsed_args["arg1"]
+    p = puck[1]
 
     TableDate = Date(parse(Int,year), parse(Int,month))
     Days = Dates.daysinmonth(TableDate)
 
-    cache = CacheDirectory()
+    #cache = CacheDirectory()
     source = DukascopyTicks()
 
     for day in 1:Days
 
-        DayTable = DataFrame(Act=Int32[],H=Int32[],DW=Int64[],
-            WY=Int64[],DR=Int32[],UR=Int32[],AVMax=Int32[],
-            BVMax=Int32[],AVSum=Int32[],BVSum=Int32[])
+        DayTable = DataFrame(D = DateTime[], 
+            DW = Int32[], WY = Int32[], 
+            Asset = ASCIIString[], 
+            AskOpen = Float64[], BidOpen = Float64[], 
+            High = Float64[], Low = Float64[], 
+            AVT = Int32[], BVT = Int32[], 
+            Puck = Int32[], Act = Int32[],
+            SL = Int32[], TP = Int32[])
+
         TrueDate = Dates.Date()
 
         for hour in 0:23
@@ -81,33 +90,43 @@ function main(args)
                 BidOpen = first(table[:Bid])
                 AskHigh = maximum(table[:Ask])
                 #BidHigh = maximum(table[:Bid])
-                AskVolumeHigh = maximum(table[:AskVolume])
-                BidVolumeHigh = maximum(table[:BidVolume])
+                #AskVolumeHigh = maximum(table[:AskVolume])
+                #BidVolumeHigh = maximum(table[:BidVolume])
                 #AskLow = minimum(table[:Ask])
                 BidLow = minimum(table[:Bid])
                 AskVolumeTotal = sum(table[:AskVolume])
                 BidVolumeTotal = sum(table[:BidVolume])
 
-                UpRange = round(Integer, (AskHigh - AskOpen) * 100000)
-                DownRange = abs(round(Integer, (BidLow - BidOpen) * 
-                    100000))
+                UpRange = 
+                round(Integer, (AskHigh - AskOpen) * 100000) > 0 ? 
+                round(Integer, (AskHigh - AskOpen) * 100000) : 1
+                DownRange = 
+                abs(round(Integer, (BidLow - BidOpen) * 100000)) > 0 ?
+                abs(round(Integer, (BidLow - BidOpen) * 100000)) : 1
 
-                if UpRange > DownRange Action = 1
-                elseif UpRange < DownRange Action = 2
-                else Action = 3
+                RU = round(Integer, UpRange / DownRange) #Ratio Up
+                RD = round(Integer, DownRange / UpRange) #Ratio Down
+                if UpRange > DownRange && RU >= p 
+                    Action = 1; SL = DownRange; TP = UpRange
+                elseif DownRange > UpRange && RD >= p 
+                    Action = 2; SL = UpRange; TP = DownRange
+                else Action = 3; SL = 0; TP = 0
                 end
 
+                #Dukascopy's history day register the ticks of day-4.
                 TrueDate = TableDate - Dates.Day(4)
                 TrueDayOfWeek = Dates.dayofweek(TrueDate)
                 TrueWeek = Dates.week(TrueDate)
 
-                HourTable = DataFrame(Act = Action, H=hour, 
-                    DW=TrueDayOfWeek, WY=TrueWeek, 
-                    DR = DownRange, UR = UpRange, 
-                    AVMax = round(Integer, AskVolumeHigh),
-                    BVMax = round(Integer, BidVolumeHigh), 
-                    AVSum = round(Integer, AskVolumeTotal),
-                    BVSum = round(Integer, BidVolumeTotal))
+                HourTable = DataFrame(D = TrueDate, 
+                    DW = Int32(TrueDayOfWeek), WY = Int32(TrueWeek), 
+                    Asset = ticker, 
+                    AskOpen = AskOpen, BidOpen = BidOpen, 
+                    High = AskHigh, Low = BidLow, 
+                    AVT = round(Integer, AskVolumeTotal),
+                    BVT = round(Integer, BidVolumeTotal), 
+                    Puck = p, Act = Action,
+                    SL = SL, TP = TP)
 
                 append!(DayTable, HourTable)
             catch
@@ -131,7 +150,7 @@ main(ARGS)
 #H = hour
 #DW = true day of week
 #WY = true week of year
-#Dukascopy history day enregister the ticks of day-4.
+
 #DR = down range as low-open
 #UR = up range as high-open
 #AVMax = ask volume max

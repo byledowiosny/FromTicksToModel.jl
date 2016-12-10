@@ -36,7 +36,7 @@ function main(args)
             nargs = '*' 
             # since the result will be a Vector{Any}, the default must
             # also be (or it can be [] or nothing)
-            default = Any["kuku!"]
+            default = Int32[5]
             help = "second argument, eats up " *
                    "as many items as possible " *
                    "before an option"
@@ -50,62 +50,73 @@ function main(args)
 
     ticker = parsed_args["opt1"]
     year,month = parsed_args["arg1"]
+    puck = parsed_args["arg2"]
+    p = puck[1]
 
     TableDate = Date(parse(Int,year), parse(Int,month))
     Days = Dates.daysinmonth(TableDate)
 
-    MonthTable = DataFrame(Act=Int32[], DW=Int32[], WY=Int32[], 
-        DRHMax=Int32[], DR5=Int32[], DR4=Int32[], DR3=Int32[], 
-        DR2=Int32[], DR1=Int32[], DRHMin=Int32[], 
-        URHMin=Int32[], UR1=Int32[], UR2=Int32[], UR3=Int32[], 
-        UR4=Int32[], UR5=Int32[], URHMax=Int32[], 
-        AVMax=Int32[], AVHMax=Int32[], BVMax=Int32[], BVHMax=Int32[], 
-        AVT=Int32[], BVT=Int32[])
+    MonthTable = DataFrame(D = DateTime[], 
+        DW = Int32[], WY = Int32[], 
+        Asset = ASCIIString[], 
+        AskOpen = Float64[], BidOpen = Float64[], 
+        High = Float64[], Low = Float64[], 
+        AVT = Int32[], BVT = Int32[], 
+        Puck = Int32[], Act = Int32[],
+        SL = Int32[], TP = Int32[])
 
     for day in 1:Days
 
         try
-table = readtable("/home/jerzy/data/csv/$ticker-$year-$month/$ticker-$year-$month-$day.csv")
+            cd("/home/jerzy/data/csv/$ticker-$year-$month")
+            table = readtable("$ticker-$year-$month-$day.csv")
 
-        if sizeof(table) == 0 continue
-        end
+            if sizeof(table) == 0 continue
+            end
         
-        DR1, DR2, DR3, DR4, DR5 = quantile(table[:DR])
-        DRMax, DRHMax = findmax(table[:DR]) # the max and its index
-        DRMin, DRHMin = findmin(table[:DR]) # the min and its index
-        UR1, UR2, UR3, UR4, UR5 = quantile(table[:UR])
-        URMax, URHMax = findmax(table[:UR]) # the max and its index
-        URMin, URHMin = findmin(table[:UR]) # the min and its index
-        
-        AVMax, AVHMax = findmax(table[:AVSum])
-        BVMax, BVHMax = findmax(table[:BVSum])
-        AVT = sum(table[:AVSum])
-        BVT = sum(table[:BVSum])
-        
-        if UR3 > DR3 Action = 1
-        elseif UR3 < DR3 Action = 2
-        else Action = 3
-        end
+            TableDate = first(table[:D])
+            DW = first(table[:DW])
+            WY = first(table[:WY])
+            AskOpen = first(table[:AskOpen])
+            BidOpen = first(table[:BidOpen])
+            High = maximum(table[:High])
+            Low = minimum(table[:Low])
+            #DR1, DR2, DR3, DR4, DR5 = quantile(table[:DR])
+            #UR1, UR2, UR3, UR4, UR5 = quantile(table[:UR])
+            AVT = sum(table[:AVT])
+            BVT = sum(table[:BVT])
 
-        DW = first(table[:DW])
-        WY = first(table[:WY])
+            UpRange = 
+                round(Integer, (High - AskOpen) * 100000) > 0 ? 
+                round(Integer, (High - AskOpen) * 100000) : 1
+            DownRange = 
+                abs(round(Integer, (Low - BidOpen) * 100000)) > 0 ?
+                abs(round(Integer, (Low - BidOpen) * 100000)) : 1
 
-        DayTable = DataFrame(Act=Action, DW=DW, WY=WY, 
-        DRHMax=DRHMax, DR5=round(Integer,DR5), DR4=round(Integer,DR4), 
-        DR3=round(Integer,DR3), DR2=round(Integer,DR2), 
-        DR1=round(Integer,DR1), DRHMin=DRHMin, 
-        URHMin=URHMin, UR1=round(Integer,UR1), UR2=round(Integer,UR2), 
-        UR3=round(Integer,UR3), UR4=round(Integer,UR4), 
-        UR5=round(Integer,UR5), URHMax=URHMax, 
-        AVMax=AVMax, AVHMax=AVHMax, BVMax=BVMax, BVHMax=BVHMax, 
-        AVT=AVT, BVT=BVT)
+            RU = round(Integer, UpRange / DownRange) #Ratio Up
+            RD = round(Integer, DownRange / UpRange) #Ratio Down
 
-        append!(MonthTable, DayTable)
+            if UpRange > DownRange && RU >= p 
+                Action = 1; SL = DownRange; TP = UpRange
+            elseif DownRange > UpRange && RD >= p 
+                Action = 2; SL = UpRange; TP = DownRange
+            else Action = 3; SL = 0; TP = 0
+            end
+
+            DayTable = DataFrame(D = DateTime(TableDate), 
+                DW = DW, WY = WY, 
+                Asset = ticker, 
+                AskOpen = AskOpen, BidOpen = BidOpen, 
+                High = High, Low = Low, 
+                AVT = AVT, BVT = BVT, 
+                Puck = p, Act = Action,
+                SL = SL, TP = TP)
+
+            append!(MonthTable, DayTable)
         catch
             day += 1
         end
     end
-
     if !isdir("/home/jerzy/data/csv/$ticker-$year")
         mkdir("/home/jerzy/data/csv/$ticker-$year")
     end
@@ -122,23 +133,15 @@ main(ARGS)
 #Act = Action: 1 buy, 2 sell, 3 do nothing
 #DW = day of week
 #WY = week of year 
-#DRHMax = down range hour max
 #DR5 = down range max
 #DR4 = down range q75
 #DR3 = down range median
 #DR2 = down range q25
 #DR1 = down range min
-#DRHMin = down range hour min
-#URHMin = up range hour min
 #UR1 = up range min
 #UR2 = up range q25
 #UR3 = up range median
 #UR4 = up range q75
 #UR5 = up range max
-#URHMax = up range hour max
-#AVMax = ask volume hourly max
-#AVHMax = ask volume hour of max
-#BVMax = bid volume hourly max
-#BVHMax = bid volume hour of max
 #AVT = ask volume total of day
 #BVT = bid volume total of day
