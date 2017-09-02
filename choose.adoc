@@ -1,0 +1,14 @@
+Choose columns and sub-sequences
+
+choose [-o outfile -l# -x# -m# -c#[,#] -V# -h] file
+
+-l number of values to be read (all) 
+-x number of values to be skipped (0) 
+-m number of columns to be read (1) 
+-c columns to be read (1) 
+-o output file name, just -o means file_select 
+-V verbosity level (0 = only fatal errors) 
+-h show this message
+Reads a column from a file starting at -x +1 and writes -l values. Output file file_select.
+
+choose -o ....dat -c1,2 ....dat

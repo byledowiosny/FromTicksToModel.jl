@@ -45,7 +45,7 @@ function main(args)
     #############################################
 
     # Read in a file of ticks.
-    cd("/home/jerzy/data/$asset-monthly")
+    cd("/home/jerzy/calculus/data/$asset/$year/$month")
     table = readtable("Ticks$year$month.csv")
 
     ticks = nrow(table)
@@ -53,11 +53,11 @@ function main(args)
     # New table with true dates.
     tab = DataFrame(Time = DateTime[], Ask = Float64[], Bid = Float64[],
                     AskVolume = Float64[], BidVolume = Float64[])
-    
+
     # The strings have to be transform to dates.
     formate = "y-m-d H:M:S.s"
     for i in 1:ticks
-        s = table[i, :Time_UTC_] 
+        s = table[i, :Time_UTC_]
         sn = Dates.DateTime(s, formate; locale="english")
         push!(tab[:Time], sn)
         push!(tab[:Ask], table[i, :Ask])
@@ -75,42 +75,35 @@ function main(args)
     # Some variables are needed outside of loops.
     Year = Dates.year(OpenDate)
     Month = Dates.month(OpenDate)
-    #Week = Dates.week(OpenDate)
-    #DayOfWeek = Dates.dayofweek(OpenDate)
-    DayOfWeekS = Dates.format(OpenDate, "e")
+    dt = DateTime(Year, Month, 1, 0, 0, 0)
+    StartTime = Dates.datetime2unix(dt)
 
     # One month of ticks is max to handle. But days of ticks have to be handle too.
     Summary = DataFrame(
-        Year = Int64[], Month = Int64[], Day = Int64[],
-        DOW = String[], 
-        Hour = Int64[], Minute = Int64[],
-        Close = Float64[], 
-        High = Float64[], Low = Float64[], Mode = Float64[],
-        RangeH = Int64[], RangeL = Int64[],
-        Volume = Int64[], Ticks = Int64[])
+        Hours = Int64[], Close = Float64[],
+        High = Float64[], Low = Float64[])
 
-    for day in OpenDay:CloseDay 
+    for day in OpenDay:CloseDay
         try
-            for hour in 0:23 
+            for hour in 0:23
                 try
-                    for minute in 0:59 
-                    try
 
-                    MinuteTable = DataFrame(
-                        Year = Int64[], Month = Int64[], Day = Int64[],
-                        DOW = String[], 
-                        Hour = Int64[], Minute = Int64[],
-                        Close = Float64[], 
-                        High = Float64[], Low = Float64[], Mode = Float64[],
-                        RangeH = Int64[], RangeL = Int64[],
-                        Volume = Int64[], Ticks = Int64[])
+                    HourTable = DataFrame(
+                        Hours = Int64[], Close = Float64[],
+                        High = Float64[], Low = Float64[])
 
                     # Sub-table for this minute.
                     t = DataFrame(Tick = Float64[], Volume = Float64[])
+                    dtp = DateTime(Year, Month, day, hour, 0, 0)
+                    ThisTime = Dates.datetime2unix(dtp)
+                    Hours = (ThisTime - StartTime)/3600
+                    #Week = Dates.week(dtp)
+                    #DayOfWeek = Dates.dayofweek(dtp)
+                    #DayOfWeekS = Dates.format(dtp, "e")
 
                     for i in 1:ticks
-                        s = tab[i, :Time] 
-                        if Dates.day(s) == day && Dates.hour(s) == hour && Dates.minute(s) == minute
+                        s = tab[i, :Time]
+                        if Dates.day(s) == day && Dates.hour(s) == hour
                             push!(t[:Tick], tab[i, :Ask])
                             push!(t[:Tick], tab[i, :Bid])
                             push!(t[:Volume], tab[i, :AskVolume])
@@ -121,29 +114,13 @@ function main(args)
                     Close = last(round(t[:Tick],4))
                     High = maximum(round(t[:Tick],4))
                     Low = minimum(round(t[:Tick],4))
-                    Mode = mode(round(t[:Tick],4))
-                    Volume = sum(t[:Volume])*100
-                    # And finaly, the number of ticks by minute.
-                    Ticks = nrow(t)
-                    RangeL = (Low - Mode)/0.0001
-                    RangeH = (High - Mode)/0.0001
 
-                    MinuteTable = DataFrame(
-                        Year = Int64(Year), Month = Int64(Month), Day = Int64(day),
-                        DOW = String(DayOfWeekS),
-                        Hour = Int64(hour), Minute = Int64(minute),
-                        Close = round(Close,4),
-                        High = round(High,4), Low = round(Low,4), Mode = round(Mode,4),
-                        RangeH = round(Integer, RangeH),
-                        RangeL = round(Integer, RangeL),
-                        Volume = round(Integer, Volume), Ticks = Int64(Ticks))
+                    HourTable = DataFrame(
+                        Hours = Int64(Hours), Close = round(Close,4),
+                        High = round(High,4), Low = round(Low,4))
 
-                    append!(Summary, MinuteTable)
+                    append!(Summary, HourTable)
 
-                    catch
-                        minute += 1
-                    end
-                    end
                 catch
                     hour += 1
                 end
@@ -152,7 +129,8 @@ function main(args)
             day += 1
         end
     end
-    writetable("5M$year$month.dat", Summary)
+    nrows = nrow(Summary)
+    writetable("$year-$month-HCHL-$nrows.dat", Summary)  #hourly month
 end
 main(ARGS)
 

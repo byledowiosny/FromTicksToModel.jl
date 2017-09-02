@@ -16,8 +16,8 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 #######################################################
-CMM <- fread(opt$file)
-Y.orig <- as.matrix(CMM[,7:9])
+CHL <- fread(opt$file)
+Y.orig <- as.matrix(CHL[,2:4])
 Y <- diff(log(Y.orig[,]))
 Y.scales <- sqrt(.colVars(Y))
 Y <- Y / matrix(Y.scales, nrow(Y), ncol(Y), byrow=TRUE)
