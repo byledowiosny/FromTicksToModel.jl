@@ -1,0 +1,3 @@
+[submodule "ssa"]
+	path = ssa
+	url = https://github.com/baggepinnen/SingularSpectrumAnalysis.jl.git
